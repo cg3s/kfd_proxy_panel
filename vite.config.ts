@@ -10,6 +10,9 @@ export default defineConfig({
     proxy: {
       "/api": "http://127.0.0.1:3000",
       "/dashboard": "http://127.0.0.1:3000",
+      "/portal": "http://127.0.0.1:3000",
+      "/admin/platform": "http://127.0.0.1:3000",
+      "/payments": "http://127.0.0.1:3000",
       "/healthz": "http://127.0.0.1:3000",
     },
   },

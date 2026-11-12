@@ -5,10 +5,12 @@ import AccountPage from "./AccountPage";
 import CardsPage from "./CardsPage";
 import CdkPage from "./CdkPage";
 import OrdersPage from "./OrdersPage";
+import PlatformAdminPage from "./PlatformAdminPage";
+import PortalApp from "./PortalApp";
 import "./style.css";
 
 type Route = (typeof documentedRoutes)[number];
-type Section = "dashboard" | "account" | "cards" | "orders" | "cdk" | "webhooks" | "api";
+type Section = "dashboard" | "account" | "cards" | "orders" | "cdk" | "webhooks" | "api" | "platform";
 type ApiResult = { status: number; contentType: string; body: string };
 type WebhookRecord = {
   event_id: string;
@@ -26,6 +28,7 @@ const sections: Array<{ id: Section; label: string; icon: string }> = [
   { id: "cdk", label: "CDK 兑换码", icon: "⌘" },
   { id: "webhooks", label: "Webhook 事件", icon: "⌁" },
   { id: "api", label: "高级 API 工具", icon: "⌘" },
+  { id: "platform", label: "多用户运营", icon: "◎" },
 ];
 
 const routeSection = (route: Route): Section => {
@@ -147,6 +150,7 @@ function App() {
         <div className="sidebar-bottom">
           <div className="secure-note"><span className="secure-dot" /><span><b>服务端密钥已保护</b><small>API Key 不会发送到浏览器</small></span></div>
           <button className="nav-item logout-button" onClick={() => void logout()}><span className="nav-icon">↪</span>退出登录</button>
+          <a className="nav-item" href="/shop"><span className="nav-icon">↗</span>用户中心预览</a>
           <div className="version">KAFUDA GATEWAY · LOCAL</div>
         </div>
       </aside>
@@ -163,6 +167,7 @@ function App() {
           {section === "orders" && <OrdersPage />}
           {section === "cdk" && <CdkPage />}
           {section === "api" && <ApiWorkspace section={section} />}
+          {section === "platform" && <PlatformAdminPage />}
         </div>
       </main>
     </div>
@@ -465,4 +470,8 @@ function formatDate(value: string): string {
   return Number.isNaN(date.getTime()) ? value : date.toLocaleString();
 }
 
-createRoot(document.getElementById("root")!).render(<React.StrictMode><App /></React.StrictMode>);
+function RootApp() {
+  return window.location.pathname.startsWith("/shop") ? <PortalApp /> : <App />;
+}
+
+createRoot(document.getElementById("root")!).render(<React.StrictMode><RootApp /></React.StrictMode>);

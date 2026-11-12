@@ -1,14 +1,12 @@
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
 import { loadDatabasePath } from "./config";
 import { SqliteDatabase } from "./database";
+import { applyMigrations } from "./migration-runner";
 
 async function migrate(): Promise<void> {
   const database = new SqliteDatabase(loadDatabasePath());
   try {
-    const sql = await readFile(join(process.cwd(), "migrations", "001_webhook_events.sql"), "utf8");
-    database.migrate(sql);
-    console.log("Database migration completed");
+    await applyMigrations(database);
+    console.log("Database migrations completed");
   } finally {
     database.close();
   }

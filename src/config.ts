@@ -10,6 +10,17 @@ export interface Config {
   webhookSecret: string;
   dashboardPassword: string;
   cookieSecure: boolean;
+  publicBaseUrl: string;
+  epayBaseUrl: string;
+  epayPid: string;
+  epayKey: string;
+  epayType: string;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpPassword: string;
+  smtpFrom: string;
+  cdkFundingCapCents: number;
 }
 
 export function loadDatabasePath(): string {
@@ -37,6 +48,14 @@ export function loadConfig(): Config {
   if (cookieSecureValue !== "true" && cookieSecureValue !== "false") {
     throw new Error("COOKIE_SECURE must be either true or false");
   }
+  const smtpPort = Number(process.env.SMTP_PORT ?? "587");
+  if (!Number.isInteger(smtpPort) || smtpPort < 1 || smtpPort > 65535) {
+    throw new Error("SMTP_PORT must be an integer between 1 and 65535");
+  }
+  const cdkFundingCapCents = Number(process.env.CDK_FUNDING_CAP_CENTS ?? "0");
+  if (!Number.isSafeInteger(cdkFundingCapCents) || cdkFundingCapCents < 0) {
+    throw new Error("CDK_FUNDING_CAP_CENTS must be a non-negative integer");
+  }
 
   return {
     port,
@@ -47,5 +66,16 @@ export function loadConfig(): Config {
     webhookSecret: required("KAFUDA_WEBHOOK_SECRET"),
     dashboardPassword,
     cookieSecure: cookieSecureValue === "true",
+    publicBaseUrl: process.env.PUBLIC_BASE_URL?.trim().replace(/\/+$/, "") ?? "",
+    epayBaseUrl: process.env.EPAY_BASE_URL?.trim().replace(/\/+$/, "") ?? "",
+    epayPid: process.env.EPAY_PID?.trim() ?? "",
+    epayKey: process.env.EPAY_KEY?.trim() ?? "",
+    epayType: process.env.EPAY_TYPE?.trim() || "alipay",
+    smtpHost: process.env.SMTP_HOST?.trim() ?? "",
+    smtpPort,
+    smtpUser: process.env.SMTP_USER?.trim() ?? "",
+    smtpPassword: process.env.SMTP_PASSWORD ?? "",
+    smtpFrom: process.env.SMTP_FROM?.trim() ?? "",
+    cdkFundingCapCents,
   };
 }

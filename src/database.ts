@@ -18,7 +18,7 @@ export interface GatewayDatabase {
 }
 
 export class SqliteDatabase implements GatewayDatabase {
-  private readonly connection: Database.Database;
+  readonly connection: Database.Database;
 
   constructor(databasePath: string) {
     if (databasePath !== ":memory:") {

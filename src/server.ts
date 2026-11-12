@@ -13,6 +13,9 @@ import {
 } from "./middleware/dashboard-auth";
 import { findDocumentedRoute, requiresIdempotencyKey } from "./kafuda/routes";
 import { parseWebhookEvent, verifyKafudaSignature } from "./webhook";
+import { PlatformStore } from "./platform/store";
+import { mountPlatformRoutes } from "./platform/routes";
+import { applyMigrations } from "./migration-runner";
 
 const KAFUDA_API_ORIGIN = "https://kafuda.com";
 const UPSTREAM_TIMEOUT_MS = 60_000;
@@ -25,6 +28,7 @@ export function createApp(
   config: ReturnType<typeof loadConfig>,
   database: GatewayDatabase,
   fetcher: typeof fetch = fetch,
+  platformStore?: PlatformStore,
 ) {
   const app = express();
   app.disable("x-powered-by");
@@ -38,6 +42,8 @@ export function createApp(
     );
     next();
   });
+
+  if (platformStore) mountPlatformRoutes(app, config, platformStore, fetcher);
 
   app.get("/healthz", async (_req, res) => {
     try {
@@ -66,6 +72,22 @@ export function createApp(
       }
 
       try {
+        if (platformStore && event.type.toLowerCase().includes("order")) {
+          const nestedOrder = typeof event.data.order === "object" && event.data.order !== null
+            ? event.data.order as Record<string, unknown>
+            : undefined;
+          const upstreamOrderId = event.data.order_id ?? nestedOrder?.id ?? event.data.id;
+          const typeStatus = event.type.split(".").at(-1)?.toLowerCase();
+          const statusValue = event.data.status ?? nestedOrder?.status ??
+            (typeStatus && ["completed", "succeeded", "success", "paid", "failed", "cancelled", "canceled", "refunded"].includes(typeStatus)
+              ? typeStatus
+              : undefined);
+          const orderId = typeof upstreamOrderId === "string" || typeof upstreamOrderId === "number"
+            ? String(upstreamOrderId)
+            : undefined;
+          const status = typeof statusValue === "string" ? statusValue : undefined;
+          if (orderId && status) platformStore.settleOrderFromWebhook(orderId, status);
+        }
         const inserted = database.insertWebhookEvent(event, rawBody.toString("utf8"));
         res.status(200).json({ received: true, duplicate: !inserted });
       } catch (error) {
@@ -208,11 +230,20 @@ export function createApp(
   });
 
   app.use((error: unknown, _req: Request, res: Response, _next: express.NextFunction) => {
-    if (error instanceof Error && "type" in error && error.type === "entity.too.large") {
+    const type = error instanceof Error && "type" in error
+      ? (error as Error & { type?: unknown }).type
+      : undefined;
+    if (type === "entity.too.large") {
       jsonError(res, 413, "request_too_large", "Request body exceeds the allowed size");
       return;
     }
-    console.error("Unhandled request error", error);
+    if (type === "entity.parse.failed") {
+      jsonError(res, 400, "invalid_json", "Request body is not valid JSON or form data");
+      return;
+    }
+    console.error("Unhandled request error", {
+      name: error instanceof Error ? error.name : "UnknownError",
+    });
     jsonError(res, 500, "internal_error", "Internal server error");
   });
 
@@ -233,7 +264,14 @@ export function createApp(
 async function main(): Promise<void> {
   const config = loadConfig();
   const database = new SqliteDatabase(config.databasePath);
-  const app = createApp(config, database);
+  try {
+    await applyMigrations(database);
+  } catch (error) {
+    database.close();
+    throw error;
+  }
+  const platformStore = new PlatformStore(database.connection);
+  const app = createApp(config, database, fetch, platformStore);
   const server = app.listen(config.port, config.host, () => {
     console.log(`Kafuda API gateway listening on http://${config.host}:${config.port}`);
   });
