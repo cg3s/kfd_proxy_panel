@@ -353,7 +353,10 @@ export default function PortalApp() {
       <aside className="portal-sidebar">
         <a className="portal-brand" href="/shop"><span className="brand-mark">K</span><b>卡付达<span>用户中心</span></b></a>
         <p className="portal-side-label">我的服务</p>
-        <nav>{nav.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => setTab(item.id)}><i>{item.icon}</i>{item.label}</button>)}</nav>
+        <nav>{nav.map((item) => <button key={item.id} className={tab === item.id ? "active" : ""} onClick={() => {
+          setTab(item.id);
+          if (item.id === "cdk") void refresh();
+        }}><i>{item.icon}</i>{item.label}</button>)}</nav>
         <div className="portal-side-bottom">
           <small>{user.email}</small>
           <button onClick={() => void logout()}>退出登录</button>
@@ -441,7 +444,7 @@ export default function PortalApp() {
                 <div className="portal-price-note">单价 {fen(selectedCdkPrice?.price_fen)} · 合计 {fen(typeof selectedCdkPrice?.price_fen === "number" ? selectedCdkPrice.price_fen * Number(cdkCount) : undefined)}</div>
                 <p className="muted">上游生成成功后卡密会归入你的账户；如果上游结果不确定，余额暂时冻结并由运营人员核对。</p>
                 <button className="button button-primary" disabled={busy}>{busy ? "正在提交…" : "购买并生成"} <span>→</span></button>
-              </form> : <div className="empty-state"><b>暂未开放 CDK 产品</b><small>请稍后再来查看。</small></div>}
+              </form> : <div className="empty-state"><b>暂未开放 CDK 产品</b><small>当前没有已上架的 CDK 售价，请联系平台运营配置。</small></div>}
               <h3 className="portal-subheading">购买记录</h3>
               <div className="table-scroll"><table><thead><tr><th>订单号</th><th>套餐</th><th>数量</th><th>金额</th><th>状态</th></tr></thead><tbody>
                 {purchases.map((row) => <tr key={String(row.id)}><td><code>{String(row.id).slice(0, 12)}</code></td><td>{String(row.plan)} · {String(row.country)}</td><td>{String(row.count)}</td><td>{fen(row.total_price_fen)}</td><td><span className={`status-tag status-${String(row.status)}`}>{String(row.status)}</span>{["needs_review", "creating"].includes(String(row.status)) && <button className="text-button portal-refresh-order" disabled={busy} onClick={() => void retryCdk(row)}>重试核对</button>}</td></tr>)}
