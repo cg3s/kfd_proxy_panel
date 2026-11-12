@@ -1,0 +1,38 @@
+{
+  "name": "kafuda-api-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Single-merchant Express gateway for the Kafuda API",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "concurrently -k -n api,web \"npm:dev:server\" \"npm:dev:ui\"",
+    "dev:server": "tsx watch src/server.ts",
+    "dev:ui": "vite --host 0.0.0.0",
+    "build": "tsc -p tsconfig.json && tsc -p tsconfig.web.json && vite build",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "db:migrate": "tsx src/migrate.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "^12.6.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/express": "^5.0.0",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "@vitejs/plugin-react": "^5.0.0",
+    "concurrently": "^9.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vite": "^7.3.1",
+    "vitest": "^4.1.12"
+  }
+}

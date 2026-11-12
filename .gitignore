@@ -1,0 +1,9 @@
+node_modules/
+dist/
+.env
+coverage/
+npm-debug.log*
+/db/*.sqlite
+/db/*.sqlite-shm
+/db/*.sqlite-wal
+/web/dist/
