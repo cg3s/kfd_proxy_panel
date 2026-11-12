@@ -229,6 +229,10 @@ export class PlatformStore {
     ).run(product, plan, country, priceFen, enabled ? 1 : 0);
   }
 
+  deletePrice(id: number): boolean {
+    return this.db.prepare("DELETE FROM price_catalog WHERE id = ?").run(id).changes > 0;
+  }
+
   saveQuote(quote: CustomerQuote): void {
     this.db.prepare(
       `INSERT INTO customer_quotes

@@ -668,6 +668,18 @@ export function mountPlatformRoutes(
     store.upsertPrice(product, plan, country, priceFen, enabled);
     response.json({ saved: true });
   });
+  app.delete("/admin/platform/prices/:id", adminAuth, (request, response) => {
+    const id = Number(routeParam(request.params.id));
+    if (!Number.isSafeInteger(id) || id < 1) {
+      sendError(response, 400, "validation_error", "Price ID is invalid");
+      return;
+    }
+    if (!store.deletePrice(id)) {
+      sendError(response, 404, "not_found", "Price entry not found");
+      return;
+    }
+    response.json({ deleted: true });
+  });
   app.get("/admin/platform/topups", adminAuth, (_request, response) => {
     response.json({ data: store.listTopups() });
   });

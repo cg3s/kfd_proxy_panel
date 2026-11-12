@@ -4,7 +4,7 @@
 
 基于 [卡付达开放 API 文档](https://kafuda.com/docs/api) 建设共享单商户服务端网关和多用户销售平台：Express 服务端保管唯一的 Kafuda API Key，并为本站用户提供邮箱注册、人民币钱包、易支付充值、按后台固定价购买直充订单和 CDK。每个用户拥有独立登录会话、余额账本、订单和卡密；用户端不直接访问共享 Kafuda 商户账户。数据库使用 SQLite，默认文件位于项目目录 `db/kafuda.sqlite`，可通过 `DATABASE_PATH` 调整。
 
-此服务**调用** `https://kafuda.com`，不实现或修改卡付达平台本身。API Key、回调地址和签名密钥等控制台专属配置仍需在 Kafuda 网页控制台完成。根路径为原有运维控制台，用户销售入口为 `/shop`。充值采用常见易支付 V1 `submit.php`、MD5 签名和服务端异步通知；不同服务商若修改了字段或签名算法，需按该实例文档适配。
+此服务**调用** `https://kafuda.com`，不实现或修改卡付达平台本身。API Key、回调地址和签名密钥等控制台专属配置仍需在 Kafuda 网页控制台完成。根路径 `/` 和 `/shop` 均进入用户中心，原有运维控制台位于 `/admin`。充值采用常见易支付 V1 `submit.php`、MD5 签名和服务端异步通知；不同服务商若修改了字段或签名算法，需按该实例文档适配。
 
 ## 2. 功能范围与接口清单
 
@@ -55,8 +55,8 @@ Session 凭据只在请求期间转发，不记录到应用日志或数据库。
 ### 2.6 网页管理端与用户中心
 
 - React + Vite 单页应用，由现有 Express 服务在构建后提供静态资源；开发模式分别运行 API（3000）和网页（5173），Vite 代理 API 请求。
-- `/` 运维端包括账户总览、账户/充值、虚拟卡、直充订单、CDK 批次、Webhook 收件箱、高级 API 请求器（覆盖 49 个 Kafuda API 路由）及多用户运营页；运营可查看用户、启停账号、进行有审计记录的余额调整并配置固定售价。
-- `/shop` 用户端包括注册/邮箱验证/登录、CNY 充值、直充检查与下单、CDK 购买、订单/钱包流水和所属卡密查看。用户只能访问自己的充值、账本、订单和 CDK 数据，Session 只在本次检查请求内存活。
+- `/admin` 运维端包括账户总览、账户/充值、虚拟卡、直充订单、CDK 批次、Webhook 收件箱、高级 API 请求器（覆盖 49 个 Kafuda API 路由）及多用户运营页；运营可查看用户、启停账号、进行有审计记录的余额调整，并从对应产品套餐下拉列表配置固定售价，对价格项执行上架、下架或删除。
+- `/` 和 `/shop` 用户端包括注册/邮箱验证/登录、CNY 充值、直充检查与下单、CDK 购买、订单/钱包流水和所属卡密查看。用户只能访问自己的充值、账本、订单和 CDK 数据，Session 只在本次检查请求内存活。
 - 使用 `DASHBOARD_PASSWORD` 登录，服务端签发 8 小时 HttpOnly、SameSite=Strict 会话 Cookie；密码错误按来源 IP 限流。浏览器不接触 Kafuda API Key、网关 Bearer Token 或 Webhook Secret。
 - 用户使用独立的邮箱/密码和服务端存储的随机会话；用户写操作使用幂等键。卡密只返回给购买用户及运维端，不进入 URL/localStorage。
 - 敏感卡数据需额外显示权限/IP 白名单提醒。Webhook 页面仅展示最近 100 条已验签事件。
@@ -118,7 +118,7 @@ Session 凭据只在请求期间转发，不记录到应用日志或数据库。
 1. 在 `.env` 配置原有 Kafuda/运维密钥；邮件注册另需 `SMTP_HOST`、`SMTP_PORT`、`SMTP_FROM`（需要认证时设置 `SMTP_USER`、`SMTP_PASSWORD`）。局域网调试设 `HOST=0.0.0.0`、`COOKIE_SECURE=false`。
 2. 真实充值需配置易支付实例的 `EPAY_BASE_URL`、`EPAY_PID`、`EPAY_KEY`、`EPAY_TYPE` 及公网 `PUBLIC_BASE_URL`。通知地址是 `${PUBLIC_BASE_URL}/payments/epay/notify`；如果支付服务商提供沙箱，应将沙箱接口地址及商户凭据配置在本地环境变量中。不要把密钥填入网页或提交到版本库。
 3. 需要允许用户购买 CDK 时，设置 `CDK_FUNDING_CAP_CENTS` 为 Kafuda 批次请求使用的上游资金上限；需由运营按 Kafuda 成本确定，并保证固定售价覆盖相关成本。
-4. 执行 `npm run db:migrate`，然后执行 `npm run dev`。本机运维后台为 `http://localhost:5173`，用户入口为 `http://localhost:5173/shop`。Vite 代理会将用户、支付和管理 API 请求转发至 Express（3000 端口）。
+4. 执行 `npm run db:migrate`，然后执行 `npm run dev`。本机用户入口为 `http://localhost:5173` 或 `http://localhost:5173/shop`，运维后台为 `http://localhost:5173/admin`。Vite 代理会将用户、支付和管理 API 请求转发至 Express（3000 端口）。
 5. 生产构建使用 `npm run build` 和 `npm start`，网页由 Express 提供。反向代理需转发 `/payments/epay/notify` 和 `/webhooks/kafuda`；公网部署使用 HTTPS 并设置 `COOKIE_SECURE=true`。
 
 真实 Kafuda 联调仍需配置有效密钥和控制台回调。HTTP 会以明文传输登录密码，仅在可信本机/隔离网络使用；局域网正式使用请部署 HTTPS 反向代理并设置 `COOKIE_SECURE=true`。

@@ -4,6 +4,48 @@ import type { JsonRecord } from "./api";
 
 type AdminTab = "users" | "prices" | "topups" | "orders" | "cdk";
 
+const gptPlans = [
+  { value: "go", label: "Go" },
+  { value: "free", label: "免费版" },
+  { value: "plus", label: "Plus" },
+  { value: "plus_half", label: "Plus 半价" },
+  { value: "pro_5x", label: "Pro 5x" },
+  { value: "pro_5x_renew", label: "Pro 5x 续费" },
+  { value: "pro_20x", label: "Pro 20x" },
+  { value: "pro_20x_renew", label: "Pro 20x 续费" },
+  { value: "pro_50x", label: "Pro 50x" },
+  { value: "credit250", label: "Codex 点数 250" },
+  { value: "credit500", label: "Codex 点数 500" },
+  { value: "credit1000", label: "Codex 点数 1000" },
+  { value: "credit2500", label: "Codex 点数 2500" },
+  { value: "credit5000", label: "Codex 点数 5000" },
+  { value: "credit25000", label: "Codex 点数 25000" },
+];
+
+const directPlans = [
+  { value: "pro", label: "Pro" },
+  { value: "max_5x", label: "Max 5x" },
+  { value: "max_20x", label: "Max 20x" },
+  { value: "plus_monthly", label: "Plus 月付" },
+  { value: "plus_yearly", label: "Plus 年付" },
+  { value: "premium_monthly", label: "Premium 月付" },
+  { value: "premium_yearly", label: "Premium 年付" },
+  { value: "super_monthly", label: "Super 月付" },
+  { value: "super_yearly", label: "Super 年付" },
+  { value: "ultra_monthly", label: "Ultra 月付" },
+  { value: "ultra_yearly", label: "Ultra 年付" },
+  { value: "premium_monthly_half", label: "Premium 月付（半价）" },
+  { value: "super_monthly_half", label: "Super 月付（半价）" },
+  { value: "ultra_monthly_half", label: "Ultra 月付（半价）" },
+];
+
+const plansByProduct = {
+  gpt: gptPlans,
+  claude: directPlans,
+  grok: directPlans,
+  cdk: gptPlans.filter((item) => item.value !== "free"),
+};
+
 async function adminRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(path, {
     ...init,
@@ -66,7 +108,7 @@ export default function PlatformAdminPage() {
   const [adjustAmount, setAdjustAmount] = useState("");
   const [adjustMemo, setAdjustMemo] = useState("");
   const [product, setProduct] = useState("gpt");
-  const [plan, setPlan] = useState("");
+  const [plan, setPlan] = useState("plus");
   const [country, setCountry] = useState("AUTO");
   const [price, setPrice] = useState("");
   const [enabled, setEnabled] = useState(true);
@@ -158,6 +200,36 @@ export default function PlatformAdminPage() {
     }
   };
 
+  const togglePriceAvailability = async (row: JsonRecord) => {
+    try {
+      await adminRequest("/admin/platform/prices", {
+        method: "POST",
+        body: JSON.stringify({
+          product: row.product,
+          plan: row.plan,
+          country: row.country,
+          price_fen: row.price_fen,
+          enabled: row.enabled !== 1,
+        }),
+      });
+      setNotice(row.enabled === 1 ? "价格已下架。" : "价格已重新上架。");
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "价格状态更新失败");
+    }
+  };
+
+  const deletePrice = async (row: JsonRecord) => {
+    if (!window.confirm(`确定删除 ${String(row.product)} / ${String(row.plan)} / ${String(row.country)} 的售价？`)) return;
+    try {
+      await adminRequest(`/admin/platform/prices/${encodeURIComponent(String(row.id))}`, { method: "DELETE" });
+      setNotice("价格已删除。");
+      await refresh();
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "价格删除失败");
+    }
+  };
+
   const resolvePurchase = async (type: "orders" | "cdk-purchases", row: JsonRecord, action: "refund" | "settle") => {
     const note = window.prompt("请先在 Kafuda 核实上游结果，并填写处理依据：")?.trim();
     if (!note) return;
@@ -216,8 +288,14 @@ export default function PlatformAdminPage() {
       {tab === "prices" && <div className="business-grid">
         <Panel title="配置固定售价" eyebrow="CNY PRICE TABLE">
           <form className="business-form" onSubmit={(event) => void savePrice(event)}>
-            <label>产品<select value={product} onChange={(event) => setProduct(event.target.value)}><option value="gpt">ChatGPT / Codex</option><option value="claude">Claude</option><option value="grok">Grok</option><option value="cdk">CDK</option></select></label>
-            <label>套餐<input value={plan} onChange={(event) => setPlan(event.target.value)} placeholder="plus / credit250" required /></label>
+            <label>产品<select value={product} onChange={(event) => {
+              const nextProduct = event.target.value as keyof typeof plansByProduct;
+              setProduct(nextProduct);
+              setPlan(plansByProduct[nextProduct][0].value);
+            }}><option value="gpt">ChatGPT / Codex</option><option value="claude">Claude</option><option value="grok">Grok</option><option value="cdk">CDK</option></select></label>
+            <label>套餐<select value={plan} onChange={(event) => setPlan(event.target.value)} required>
+              {plansByProduct[product as keyof typeof plansByProduct].map((item) => <option key={item.value} value={item.value}>{item.label}（{item.value}）</option>)}
+            </select></label>
             <label>地区<select value={country} onChange={(event) => setCountry(event.target.value)}><option>AUTO</option><option>PH</option><option>CL</option><option>EG</option><option>JP</option><option>US</option></select></label>
             <label>售价（人民币元）<input value={price} onChange={(event) => setPrice(event.target.value)} placeholder="例如 99.00" required /></label>
             <label className="check-field"><input type="checkbox" checked={enabled} onChange={(event) => setEnabled(event.target.checked)} />立即上架</label>
@@ -230,6 +308,10 @@ export default function PlatformAdminPage() {
             { key: "product", label: "产品" }, { key: "plan", label: "套餐" },
             { key: "country", label: "地区" }, { key: "price_fen", label: "人民币", render: (row) => cny(row.price_fen) },
             { key: "enabled", label: "状态", render: (row) => row.enabled === 1 ? "上架" : "下架" },
+            { key: "actions", label: "操作", render: (row) => <span className="table-actions">
+              <button className="text-button" onClick={() => void togglePriceAvailability(row)}>{row.enabled === 1 ? "下架" : "重新上架"}</button>
+              <button className="text-button" onClick={() => void deletePrice(row)}>删除</button>
+            </span> },
           ]} emptyText="尚未配置销售价格" />
         </Panel>
       </div>}

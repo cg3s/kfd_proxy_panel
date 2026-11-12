@@ -57,6 +57,39 @@ describe("customer wallet and payment platform", () => {
     }
   });
 
+  it("allows an operator to unpublish and delete a catalog price", async () => {
+    const { database, store } = createPlatform();
+    try {
+      store.upsertPrice("cdk", "plus", "AUTO", 2500, true);
+      const [price] = store.listPrices();
+      server = createServer(createApp(config, database, async () => new Response("{}"), store));
+      await new Promise<void>((resolve) => server?.listen(0, "127.0.0.1", resolve));
+      const address = server.address() as AddressInfo;
+      const baseUrl = `http://127.0.0.1:${address.port}`;
+      const headers = {
+        authorization: `Bearer ${config.gatewayApiToken}`,
+        "content-type": "application/json",
+      };
+
+      const unpublished = await fetch(`${baseUrl}/admin/platform/prices`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ ...price, enabled: false }),
+      });
+      expect(unpublished.status).toBe(200);
+      expect(store.listPrices()[0].enabled).toBe(0);
+
+      const deleted = await fetch(`${baseUrl}/admin/platform/prices/${price.id}`, {
+        method: "DELETE",
+        headers: { authorization: headers.authorization },
+      });
+      expect(deleted.status).toBe(200);
+      expect(store.listPrices()).toEqual([]);
+    } finally {
+      database.close();
+    }
+  });
+
   it("credits an Epay recharge once and rejects mismatched callback amounts", async () => {
     const { database, store, register } = createPlatform();
     const userId = register("payer@example.test");

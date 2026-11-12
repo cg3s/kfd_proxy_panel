@@ -471,7 +471,7 @@ function formatDate(value: string): string {
 }
 
 function RootApp() {
-  return window.location.pathname.startsWith("/shop") ? <PortalApp /> : <App />;
+  return window.location.pathname.startsWith("/admin") ? <App /> : <PortalApp />;
 }
 
 createRoot(document.getElementById("root")!).render(<React.StrictMode><RootApp /></React.StrictMode>);
